@@ -134,3 +134,5 @@ spec:
     requests:
       storage: 50Gi
   storageClassName: standard
+
+# fix: fix edge case in authorization when input is empty

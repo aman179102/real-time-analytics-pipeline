@@ -88,3 +88,5 @@ class Sampler:
         }
 
 # test: add regression tests for data models bug fix
+
+# fix: fix edge case in authorization when input is empty
