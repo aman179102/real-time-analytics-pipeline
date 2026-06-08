@@ -86,3 +86,5 @@ class Sampler:
                 k: len(v) for k, v in self._reservoir_samples.items()
             },
         }
+
+# test: add regression tests for data models bug fix
