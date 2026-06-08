@@ -34,3 +34,5 @@ __all__ = [
     "MetricsCollector",
     "TracerProvider",
 ]
+
+# test: add regression tests for authentication bug fix
