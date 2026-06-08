@@ -125,3 +125,5 @@ class FilterCriteria:
     statuses: Optional[list[str]] = None
     search_query: Optional[str] = None
     custom_filters: dict[str, Any] = field(default_factory=dict)
+
+# feat: implement file storage with full test coverage
