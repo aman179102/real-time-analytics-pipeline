@@ -1,0 +1,169 @@
+version: "3.9"
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    image: real-time-analytics-pipeline:latest
+    container_name: analytics-app
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+      - "9090:9090"
+    environment:
+      ENVIRONMENT: development
+      LOG_LEVEL: DEBUG
+      DEBUG: "true"
+      HOST: 0.0.0.0
+      PORT: 8000
+      WORKERS: 2
+      DATABASE_PROVIDER: timescaledb
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_NAME: analytics
+      DATABASE_USER: analytics
+      DATABASE_PASSWORD: analytics
+      DATABASE_POOL_SIZE: 10
+      DATABASE_MIN_CONNECTIONS: 5
+      DATABASE_MAX_CONNECTIONS: 20
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_DB: 0
+      REDIS_PASSWORD: ""
+      REDIS_STREAM_MAXLEN: "100000"
+      QUEUE_PROVIDER: redis_streams
+      JWT_SECRET: change-me-in-production-jwt-secret
+      JWT_ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: "15"
+      REFRESH_TOKEN_EXPIRE_DAYS: "7"
+      BCRYPT_ROUNDS: "12"
+      RATE_LIMIT_ENABLED: "true"
+      RATE_LIMIT_REQUESTS_PER_MINUTE: "60"
+      RATE_LIMIT_BURST_SIZE: "100"
+      CORS_ALLOWED_ORIGINS: http://localhost:3000,http://localhost:8080
+      RETENTION_RAW_EVENTS_DAYS: "30"
+      RETENTION_AGGREGATED_HOURLY_DAYS: "90"
+      RETENTION_AGGREGATED_DAILY_DAYS: "365"
+      SAMPLING_DEFAULT_RATE: "1.0"
+      SAMPLING_HIGH_VOLUME_THRESHOLD: "10000"
+      SAMPLING_HIGH_VOLUME_RATE: "0.1"
+      TRACING_ENABLED: "true"
+      TRACING_EXPORTER_ENDPOINT: http://grafana-tempo:4318/v1/traces
+      METRICS_ENABLED: "true"
+      METRICS_PORT: "9090"
+      BATCH_SIZE: "100"
+      FLUSH_INTERVAL_SECONDS: "1.0"
+      MAX_EVENT_SIZE_BYTES: "65536"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    volumes:
+      - ../src:/app/src
+    logging: *default-logging
+    networks:
+      - analytics-net
+
+  postgres:
+    image: timescale/timescaledb:2-pg16
+    container_name: analytics-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: analytics
+      POSTGRES_USER: analytics
+      POSTGRES_PASSWORD: analytics
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --locale=C"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./scripts/init_db.sh:/docker-entrypoint-initdb.d/init_db.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U analytics -d analytics"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    logging: *default-logging
+    networks:
+      - analytics-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: analytics-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    logging: *default-logging
+    networks:
+      - analytics-net
+
+  prometheus:
+    image: prom/prometheus:v2.49.1
+    container_name: analytics-prometheus
+    restart: unless-stopped
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=30d"
+      - "--web.console.libraries=/usr/share/prometheus/console_libraries"
+      - "--web.console.templates=/usr/share/prometheus/consoles"
+    ports:
+      - "9091:9090"
+    volumes:
+      - prometheus-data:/prometheus
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    logging: *default-logging
+    networks:
+      - analytics-net
+
+  grafana:
+    image: grafana/grafana:10.2.3
+    container_name: analytics-grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_INSTALL_PLUGINS: ""
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_SERVER_ROOT_URL: http://localhost:3000
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    logging: *default-logging
+    networks:
+      - analytics-net
+
+volumes:
+  postgres-data:
+    driver: local
+  redis-data:
+    driver: local
+  prometheus-data:
+    driver: local
+  grafana-data:
+    driver: local
+
+networks:
+  analytics-net:
+    driver: bridge

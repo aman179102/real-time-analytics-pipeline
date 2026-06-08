@@ -1,0 +1,1021 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Real-Time Analytics Pipeline API",
+    "version": "1.0.0",
+    "description": "Enterprise-grade real-time analytics pipeline API. Supports event ingestion, analytics queries, dashboard management, and real-time WebSocket streaming.",
+    "contact": {
+      "name": "Engineering Team",
+      "email": "engineering@example.com"
+    },
+    "license": {
+      "name": "MIT"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8000",
+      "description": "Local development"
+    },
+    {
+      "url": "https://api.example.com",
+      "description": "Production"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": { "type": "string", "example": "VALIDATION_ERROR" },
+              "message": { "type": "string", "example": "Validation failed" },
+              "details": { "type": "object", "example": {} }
+            },
+            "required": ["code", "message"]
+          }
+        },
+        "required": ["error"]
+      },
+      "HealthResponse": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "string", "example": "ok" },
+          "version": { "type": "string", "example": "1.0.0" },
+          "uptime": { "type": "integer", "example": 12345 },
+          "service": { "type": "string", "example": "real-time-analytics-pipeline" },
+          "environment": { "type": "string", "example": "production" }
+        }
+      },
+      "LoginRequest": {
+        "type": "object",
+        "required": ["username", "password"],
+        "properties": {
+          "username": { "type": "string", "minLength": 3, "maxLength": 100, "example": "admin" },
+          "password": { "type": "string", "minLength": 8, "maxLength": 128, "example": "securepass123!" }
+        }
+      },
+      "RegisterRequest": {
+        "type": "object",
+        "required": ["username", "email", "password"],
+        "properties": {
+          "username": { "type": "string", "minLength": 3, "maxLength": 100, "pattern": "^[a-zA-Z0-9_]+$", "example": "admin" },
+          "email": { "type": "string", "format": "email", "example": "admin@example.com" },
+          "password": { "type": "string", "minLength": 8, "maxLength": 128, "example": "securepass123!" }
+        }
+      },
+      "TokenResponse": {
+        "type": "object",
+        "properties": {
+          "access_token": { "type": "string" },
+          "refresh_token": { "type": "string" },
+          "token_type": { "type": "string", "example": "bearer" },
+          "expires_in": { "type": "integer", "example": 900 }
+        }
+      },
+      "UserResponse": {
+        "type": "object",
+        "properties": {
+          "user_id": { "type": "string", "format": "uuid" },
+          "username": { "type": "string" },
+          "email": { "type": "string", "format": "email" },
+          "role": { "type": "string", "enum": ["admin", "analyst", "viewer"] },
+          "is_active": { "type": "boolean" }
+        }
+      },
+      "EventCreateRequest": {
+        "type": "object",
+        "required": ["event_type", "source"],
+        "properties": {
+          "event_type": { "type": "string", "enum": ["page_view", "click", "signup", "purchase", "login", "logout", "error", "custom"], "description": "Type of event" },
+          "source": { "type": "string", "minLength": 1, "maxLength": 255, "example": "web-app" },
+          "payload": { "type": "object", "example": {"url": "/home", "duration_ms": 4500} },
+          "user_id": { "type": "string", "nullable": true },
+          "session_id": { "type": "string", "nullable": true },
+          "ip_address": { "type": "string", "nullable": true },
+          "user_agent": { "type": "string", "nullable": true },
+          "timestamp": { "type": "string", "format": "date-time", "nullable": true }
+        }
+      },
+      "EventResponse": {
+        "type": "object",
+        "properties": {
+          "event_id": { "type": "string", "format": "uuid" },
+          "event_type": { "type": "string" },
+          "source": { "type": "string" },
+          "payload": { "type": "object" },
+          "timestamp": { "type": "string", "format": "date-time" },
+          "user_id": { "type": "string", "nullable": true },
+          "session_id": { "type": "string", "nullable": true },
+          "status": { "type": "string" }
+        }
+      },
+      "EventIngestResponse": {
+        "type": "object",
+        "properties": {
+          "event_id": { "type": "string", "format": "uuid" },
+          "message_id": { "type": "string" },
+          "status": { "type": "string", "example": "accepted" }
+        }
+      },
+      "BatchIngestResponse": {
+        "type": "object",
+        "properties": {
+          "count": { "type": "integer" },
+          "event_ids": { "type": "array", "items": { "type": "string" } },
+          "status": { "type": "string", "example": "accepted" }
+        }
+      },
+      "PaginatedResponse": {
+        "type": "object",
+        "properties": {
+          "items": { "type": "array" },
+          "total": { "type": "integer" },
+          "page": { "type": "integer" },
+          "page_size": { "type": "integer" },
+          "total_pages": { "type": "integer" },
+          "has_next": { "type": "boolean" },
+          "has_previous": { "type": "boolean" }
+        }
+      },
+      "EventListResponse": {
+        "allOf": [
+          { "$ref": "#/components/schemas/PaginatedResponse" },
+          {
+            "type": "object",
+            "properties": {
+              "items": { "type": "array", "items": { "$ref": "#/components/schemas/EventResponse" } }
+            }
+          }
+        ]
+      },
+      "AggregatedMetricResponse": {
+        "type": "object",
+        "properties": {
+          "metric_id": { "type": "string", "format": "uuid" },
+          "metric_name": { "type": "string" },
+          "window": { "type": "string", "enum": ["minute", "hourly", "daily"] },
+          "window_start": { "type": "string", "format": "date-time" },
+          "window_end": { "type": "string", "format": "date-time" },
+          "value": { "type": "number" },
+          "count": { "type": "integer" },
+          "dimensions": { "type": "object" }
+        }
+      },
+      "AggregationListResponse": {
+        "allOf": [
+          { "$ref": "#/components/schemas/PaginatedResponse" },
+          {
+            "type": "object",
+            "properties": {
+              "items": { "type": "array", "items": { "$ref": "#/components/schemas/AggregatedMetricResponse" } }
+            }
+          }
+        ]
+      },
+      "RealtimeMetricsResponse": {
+        "type": "object",
+        "properties": {
+          "time_range_seconds": { "type": "integer" },
+          "total_events": { "type": "integer" },
+          "events_per_second": { "type": "number" },
+          "by_type": { "type": "object", "additionalProperties": { "type": "integer" } },
+          "by_source": { "type": "object", "additionalProperties": { "type": "integer" } }
+        }
+      },
+      "WidgetCreateRequest": {
+        "type": "object",
+        "required": ["title", "widget_type", "metric_name", "position"],
+        "properties": {
+          "title": { "type": "string", "minLength": 1, "maxLength": 255 },
+          "widget_type": { "type": "string", "enum": ["timeseries", "counter", "pie_chart", "table", "heatmap"] },
+          "metric_name": { "type": "string" },
+          "config": { "type": "object" },
+          "position": { "type": "integer", "minimum": 0 },
+          "width": { "type": "integer", "minimum": 1, "maximum": 12, "default": 6 },
+          "height": { "type": "integer", "minimum": 1, "maximum": 12, "default": 4 }
+        }
+      },
+      "DashboardCreateRequest": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1, "maxLength": 255 },
+          "description": { "type": "string", "default": "" },
+          "widgets": { "type": "array", "items": { "$ref": "#/components/schemas/WidgetCreateRequest" } },
+          "is_public": { "type": "boolean", "default": false }
+        }
+      },
+      "DashboardUpdateRequest": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string", "minLength": 1, "maxLength": 255 },
+          "description": { "type": "string" },
+          "widgets": { "type": "array", "items": { "$ref": "#/components/schemas/WidgetCreateRequest" } },
+          "is_public": { "type": "boolean" }
+        }
+      },
+      "WidgetResponse": {
+        "type": "object",
+        "properties": {
+          "widget_id": { "type": "string", "format": "uuid" },
+          "title": { "type": "string" },
+          "widget_type": { "type": "string" },
+          "metric_name": { "type": "string" },
+          "config": { "type": "object" },
+          "position": { "type": "integer" },
+          "width": { "type": "integer" },
+          "height": { "type": "integer" }
+        }
+      },
+      "DashboardResponse": {
+        "type": "object",
+        "properties": {
+          "dashboard_id": { "type": "string", "format": "uuid" },
+          "name": { "type": "string" },
+          "description": { "type": "string" },
+          "widgets": { "type": "array", "items": { "$ref": "#/components/schemas/WidgetResponse" } },
+          "owner_id": { "type": "string", "nullable": true },
+          "is_public": { "type": "boolean" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "DashboardListResponse": {
+        "allOf": [
+          { "$ref": "#/components/schemas/PaginatedResponse" },
+          {
+            "type": "object",
+            "properties": {
+              "items": { "type": "array", "items": { "$ref": "#/components/schemas/DashboardResponse" } }
+            }
+          }
+        ]
+      },
+      "RetentionApplyResponse": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "string", "example": "completed" },
+          "results": {
+            "type": "object",
+            "properties": {
+              "raw_events_deleted": { "type": "integer" },
+              "hourly_aggregations_deleted": { "type": "integer" },
+              "daily_aggregations_deleted": { "type": "integer" }
+            }
+          }
+        }
+      },
+      "RetentionSummaryResponse": {
+        "type": "object",
+        "properties": {
+          "raw_events": { "type": "object", "properties": {
+            "retention_days": { "type": "integer" },
+            "total_records": { "type": "integer" },
+            "oldest_record": { "type": "string", "format": "date-time" },
+            "newest_record": { "type": "string", "format": "date-time" }
+          }},
+          "hourly_aggregations": { "type": "object" },
+          "daily_aggregations": { "type": "object" }
+        }
+      },
+      "MetricsSnapshotResponse": {
+        "type": "object",
+        "properties": {
+          "http_requests_total": { "type": "integer" },
+          "events_ingested_total": { "type": "integer" },
+          "events_processed_total": { "type": "integer" },
+          "active_connections": { "type": "integer" },
+          "error_count": { "type": "integer" }
+        }
+      },
+      "SamplingStatsResponse": {
+        "type": "object",
+        "properties": {
+          "current_sample_rate": { "type": "number" },
+          "total_events_sampled": { "type": "integer" },
+          "total_events_processed": { "type": "integer" },
+          "is_high_volume_mode": { "type": "boolean" }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "operationId": "health_check_health_get",
+        "summary": "Health check",
+        "description": "Returns the current health status of the service including version and uptime.",
+        "tags": ["Health"],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Service is healthy",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/HealthResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/health": {
+      "get": {
+        "operationId": "health_check_v1",
+        "summary": "Health check (v1)",
+        "tags": ["Health"],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Service is healthy",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/HealthResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/register": {
+      "post": {
+        "operationId": "register_user",
+        "summary": "Register a new user",
+        "description": "Creates a new user account and returns JWT tokens.",
+        "tags": ["Authentication"],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/RegisterRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "User registered successfully",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/TokenResponse" }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error (username or email taken)",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "operationId": "login_user",
+        "summary": "Login",
+        "description": "Authenticates a user and returns JWT tokens.",
+        "tags": ["Authentication"],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/LoginRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login successful",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/TokenResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/refresh": {
+      "post": {
+        "operationId": "refresh_token",
+        "summary": "Refresh access token",
+        "description": "Exchanges a refresh token for a new access token and refresh token.",
+        "tags": ["Authentication"],
+        "security": [],
+        "parameters": [
+          {
+            "name": "X-Refresh-Token",
+            "in": "header",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Tokens refreshed successfully",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/TokenResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or expired refresh token",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/me": {
+      "get": {
+        "operationId": "get_current_user",
+        "summary": "Get current user",
+        "description": "Returns the currently authenticated user's profile.",
+        "tags": ["Authentication"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Current user information",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/UserResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/events/ingest": {
+      "post": {
+        "operationId": "ingest_event",
+        "summary": "Ingest a single event",
+        "description": "Ingests a single analytics event into the pipeline. The event is queued for async processing.",
+        "tags": ["Events"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/EventCreateRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Event accepted for processing",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/EventIngestResponse" }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid event data",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/events/ingest/batch": {
+      "post": {
+        "operationId": "ingest_events_batch",
+        "summary": "Batch ingest events",
+        "description": "Ingests multiple analytics events in a single request for higher throughput.",
+        "tags": ["Events"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": { "$ref": "#/components/schemas/EventCreateRequest" },
+                "minItems": 1,
+                "maxItems": 500
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Events accepted for processing",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/BatchIngestResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/events": {
+      "get": {
+        "operationId": "list_events",
+        "summary": "List events",
+        "description": "Retrieves analytics events with filtering and pagination.",
+        "tags": ["Events"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "start", "in": "query", "required": true, "schema": { "type": "string", "format": "date-time" }, "description": "Start of time range" },
+          { "name": "end", "in": "query", "required": true, "schema": { "type": "string", "format": "date-time" }, "description": "End of time range" },
+          { "name": "event_type", "in": "query", "schema": { "type": "string" } },
+          { "name": "source", "in": "query", "schema": { "type": "string" } },
+          { "name": "user_id", "in": "query", "schema": { "type": "string" } },
+          { "name": "status", "in": "query", "schema": { "type": "string" } },
+          { "name": "search", "in": "query", "schema": { "type": "string" } },
+          { "name": "page", "in": "query", "schema": { "type": "integer", "minimum": 1, "default": 1 } },
+          { "name": "page_size", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of events",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/EventListResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/events/{event_id}": {
+      "get": {
+        "operationId": "get_event",
+        "summary": "Get event by ID",
+        "description": "Returns a single analytics event by its unique ID.",
+        "tags": ["Events"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "event_id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Event found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/EventResponse" }
+              }
+            }
+          },
+          "404": {
+            "description": "Event not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/analytics/aggregations/{metric_name}": {
+      "get": {
+        "operationId": "get_aggregations",
+        "summary": "Get aggregated metrics",
+        "description": "Retrieves aggregated metrics for a given metric name and time window.",
+        "tags": ["Analytics"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "metric_name", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "window", "in": "query", "schema": { "type": "string", "enum": ["minute", "hourly", "daily"], "default": "minute" } },
+          { "name": "start", "in": "query", "required": true, "schema": { "type": "string", "format": "date-time" } },
+          { "name": "end", "in": "query", "required": true, "schema": { "type": "string", "format": "date-time" } },
+          { "name": "dimension_key", "in": "query", "schema": { "type": "string" } },
+          { "name": "dimension_value", "in": "query", "schema": { "type": "string" } },
+          { "name": "page", "in": "query", "schema": { "type": "integer", "minimum": 1, "default": 1 } },
+          { "name": "page_size", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Aggregated metrics",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AggregationListResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/analytics/aggregations/{metric_name}/latest": {
+      "get": {
+        "operationId": "get_latest_aggregation",
+        "summary": "Get latest aggregation",
+        "description": "Returns the most recent aggregation for a given metric name and window.",
+        "tags": ["Analytics"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "metric_name", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "window", "in": "query", "schema": { "type": "string", "enum": ["minute", "hourly", "daily"], "default": "minute" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Latest aggregation",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AggregatedMetricResponse" }
+              }
+            }
+          },
+          "404": {
+            "description": "No aggregation found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/analytics/counts/types": {
+      "get": {
+        "operationId": "get_event_type_counts",
+        "summary": "Get event type counts",
+        "description": "Returns event counts grouped by event type for a time range.",
+        "tags": ["Analytics"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "start", "in": "query", "required": true, "schema": { "type": "string", "format": "date-time" } },
+          { "name": "end", "in": "query", "required": true, "schema": { "type": "string", "format": "date-time" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Event type counts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": { "type": "integer" },
+                  "example": { "page_view": 1500, "click": 800, "signup": 45 }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/analytics/counts/sources": {
+      "get": {
+        "operationId": "get_source_counts",
+        "summary": "Get source counts",
+        "description": "Returns event counts grouped by source for a time range.",
+        "tags": ["Analytics"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "start", "in": "query", "required": true, "schema": { "type": "string", "format": "date-time" } },
+          { "name": "end", "in": "query", "required": true, "schema": { "type": "string", "format": "date-time" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Source counts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": { "type": "integer" },
+                  "example": { "web-app": 2000, "mobile-app": 500, "api-gateway": 300 }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/analytics/realtime": {
+      "get": {
+        "operationId": "get_realtime_metrics",
+        "summary": "Get real-time metrics",
+        "description": "Returns a snapshot of real-time metrics for the specified time window.",
+        "tags": ["Analytics"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "window_seconds", "in": "query", "schema": { "type": "integer", "minimum": 10, "maximum": 3600, "default": 60 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Real-time metrics snapshot",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/RealtimeMetricsResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/dashboards": {
+      "post": {
+        "operationId": "create_dashboard",
+        "summary": "Create dashboard",
+        "description": "Creates a new dashboard with optional widgets.",
+        "tags": ["Dashboards"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/DashboardCreateRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Dashboard created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/DashboardResponse" }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid dashboard data",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "list_dashboards",
+        "summary": "List dashboards",
+        "description": "Returns a paginated list of dashboards owned by the current user.",
+        "tags": ["Dashboards"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer", "minimum": 1, "default": 1 } },
+          { "name": "page_size", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of dashboards",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/DashboardListResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/dashboards/{dashboard_id}": {
+      "get": {
+        "operationId": "get_dashboard",
+        "summary": "Get dashboard by ID",
+        "description": "Returns a single dashboard with all its widgets.",
+        "tags": ["Dashboards"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "dashboard_id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Dashboard found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/DashboardResponse" }
+              }
+            }
+          },
+          "404": {
+            "description": "Dashboard not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "update_dashboard",
+        "summary": "Update dashboard",
+        "description": "Updates an existing dashboard's properties and widgets.",
+        "tags": ["Dashboards"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "dashboard_id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/DashboardUpdateRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Dashboard updated",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/DashboardResponse" }
+              }
+            }
+          },
+          "404": {
+            "description": "Dashboard not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "delete_dashboard",
+        "summary": "Delete dashboard",
+        "description": "Soft-deletes a dashboard and its widgets.",
+        "tags": ["Dashboards"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "dashboard_id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "204": {
+            "description": "Dashboard deleted"
+          },
+          "404": {
+            "description": "Dashboard not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/retention/apply": {
+      "post": {
+        "operationId": "apply_retention_policy",
+        "summary": "Apply retention policy",
+        "description": "Manually triggers the data retention policy to delete expired data.",
+        "tags": ["Admin"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Retention policy applied",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/RetentionApplyResponse" }
+              }
+            }
+          },
+          "403": {
+            "description": "Admin access required",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/retention/summary": {
+      "get": {
+        "operationId": "get_retention_summary",
+        "summary": "Get retention summary",
+        "description": "Returns a summary of current data retention status.",
+        "tags": ["Admin"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Retention summary",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/RetentionSummaryResponse" }
+              }
+            }
+          },
+          "403": {
+            "description": "Admin access required",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/metrics/snapshot": {
+      "get": {
+        "operationId": "get_metrics_snapshot",
+        "summary": "Get metrics snapshot",
+        "description": "Returns a snapshot of current application metrics (admin only).",
+        "tags": ["Admin"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Metrics snapshot",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/MetricsSnapshotResponse" }
+              }
+            }
+          },
+          "403": {
+            "description": "Admin access required",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/sampling/stats": {
+      "get": {
+        "operationId": "get_sampling_stats",
+        "summary": "Get sampling statistics",
+        "description": "Returns current adaptive sampling statistics (admin only).",
+        "tags": ["Admin"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Sampling statistics",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SamplingStatsResponse" }
+              }
+            }
+          },
+          "403": {
+            "description": "Admin access required",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ws/dashboard/{dashboard_id}": {
+      "parameters": [
+        { "name": "dashboard_id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+      ],
+      "get": {
+        "operationId": "dashboard_websocket",
+        "summary": "Dashboard real-time WebSocket",
+        "description": "Establishes a WebSocket connection for real-time dashboard metric updates. Supports subscribe, refresh, and ping messages.",
+        "tags": ["WebSocket"],
+        "parameters": [
+          { "name": "token", "in": "query", "schema": { "type": "string" }, "description": "Optional JWT token for authentication" }
+        ],
+        "responses": {
+          "101": {
+            "description": "WebSocket connection established"
+          },
+          "426": {
+            "description": "Upgrade required"
+          }
+        }
+      }
+    }
+  }
+}
