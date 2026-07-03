@@ -13,9 +13,11 @@ from fastapi.openapi.utils import get_openapi
 
 from src.api.errors import AppError
 from src.api.middleware.auth import AuthMiddleware
+from src.api.middleware.correlation import CorrelationMiddleware
 from src.api.middleware.cors import setup_cors
-from src.api.middleware.logging import LoggingMiddleware
 from src.api.middleware.rate_limit import RateLimitMiddleware
+from src.api.middleware.security import SecurityHeadersMiddleware
+from src.api.middleware.size_limiter import SizeLimiterMiddleware
 from src.api.routes.health import router as health_router
 from src.api.routes.auth import router as auth_router
 from src.api.routes.events import router as events_router
@@ -69,9 +71,11 @@ app = FastAPI(
 
 
 setup_cors(app)
+app.add_middleware(CorrelationMiddleware)
+app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(AuthMiddleware)
-app.add_middleware(LoggingMiddleware)
 app.add_middleware(RateLimitMiddleware)
+app.add_middleware(SizeLimiterMiddleware)
 
 
 @app.exception_handler(AppError)

@@ -73,8 +73,10 @@ class TestAnalyticsService:
         self, analytics_service,
     ):
         eid = "cached-id"
-        analytics_service._cache.get.return_value = eid
+        event = AnalyticsEvent(event_id=eid, event_type=EventType.CLICK, source="web", payload={})
+        analytics_service._cache.get.return_value = json.dumps(event.to_dict(), default=str)
         result = await analytics_service.get_event_by_id(eid)
+        assert result is not None
         assert result.event_id == eid
         analytics_service._event_repo.get_by_id.assert_not_awaited()
 

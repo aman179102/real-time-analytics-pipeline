@@ -202,6 +202,10 @@ class AppConfig:
     max_event_size_bytes: int = int(
         os.getenv("MAX_EVENT_SIZE_BYTES", "65536")
     )
+    max_request_size: int = int(os.getenv("MAX_REQUEST_SIZE", str(10 * 1024 * 1024)))
+    content_security_policy: str = os.getenv(
+        "CONTENT_SECURITY_POLICY", "default-src 'self'"
+    )
     batch_size: int = int(os.getenv("BATCH_SIZE", "100"))
     flush_interval_seconds: float = float(
         os.getenv("FLUSH_INTERVAL_SECONDS", "1.0")

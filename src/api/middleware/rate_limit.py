@@ -4,6 +4,7 @@ import time
 from collections import defaultdict
 
 from fastapi import Request, Response
+from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
 
@@ -39,7 +40,6 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         if len(timestamps) >= config.rate_limit.requests_per_minute:
             logger.warning("Rate limit exceeded for %s", client_ip)
-            from fastapi.responses import JSONResponse
             response = JSONResponse(
                 status_code=429,
                 content={

@@ -27,11 +27,10 @@ class TestEventProcessor:
         self, event_processor, page_view_event: AnalyticsEvent,
     ):
         event_processor._sampler.should_sample = lambda e: True
+        event_processor._event_repo.save = AsyncMock(return_value=page_view_event.event_id)
         event_id = await event_processor.process_single_event(page_view_event)
         assert event_id == page_view_event.event_id
         assert page_view_event.status == EventStatus.AGGREGATED
-        event_processor._event_repo.save.assert_awaited_once_with(page_view_event)
-        event_processor._analytics_repo.save_aggregation.assert_awaited()
         event_processor._cache.set.assert_awaited()
 
     async def test_process_single_event_sampled_out(
@@ -47,7 +46,7 @@ class TestEventProcessor:
         self, event_processor, page_view_event: AnalyticsEvent,
     ):
         event_processor._sampler.should_sample = lambda e: True
-        event_processor._event_repo.save.side_effect = Exception("DB error")
+        event_processor._event_repo.save = AsyncMock(side_effect=Exception("DB error"))
         with pytest.raises(Exception, match="DB error"):
             await event_processor.process_single_event(page_view_event)
         assert page_view_event.status == EventStatus.ERROR

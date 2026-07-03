@@ -3,13 +3,17 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from typing import Optional
 
+import bcrypt
+import jwt as pyjwt
 from fastapi import APIRouter, Depends, Header
 from pydantic import BaseModel, EmailStr, Field
+from sqlalchemy import select
 
 from src.api.errors import AuthenticationError, ValidationError
 from src.api.dependencies import verify_token
 from src.config import config
 from src.domain.models import User, UserRole
+from src.infrastructure.database.models import UserModel
 from src.infrastructure.database.repositories import PostgresEventRepository
 from src.infrastructure.database.session import db_manager
 from src.infrastructure.logging import get_logger
@@ -47,7 +51,6 @@ class UserResponse(BaseModel):
 
 
 def _create_access_token(user: User) -> str:
-    import jwt as pyjwt
     now = datetime.utcnow()
     payload = {
         "sub": user.user_id,
@@ -63,7 +66,6 @@ def _create_access_token(user: User) -> str:
 
 
 def _create_refresh_token(user: User) -> str:
-    import jwt as pyjwt
     now = datetime.utcnow()
     payload = {
         "sub": user.user_id,
@@ -77,13 +79,11 @@ def _create_refresh_token(user: User) -> str:
 
 
 def _hash_password(password: str) -> str:
-    import bcrypt
     salt = bcrypt.gensalt(rounds=config.auth.bcrypt_rounds)
     return bcrypt.hashpw(password.encode("utf-8"), salt).decode("utf-8")
 
 
 def _verify_password(password: str, hashed: str) -> bool:
-    import bcrypt
     return bcrypt.checkpw(
         password.encode("utf-8"), hashed.encode("utf-8")
     )
@@ -91,44 +91,35 @@ def _verify_password(password: str, hashed: str) -> bool:
 
 async def _get_user_by_username(username: str):
     async with db_manager.session() as session:
-        from sqlalchemy import select
-        from src.infrastructure.database.models import UserModel
         stmt = select(UserModel).where(UserModel.username == username, UserModel.deleted_at.is_(None))
         result = await session.execute(stmt)
         row = result.scalar_one_or_none()
         if row:
-            return User.from_dict({
-                "user_id": row.user_id,
-                "username": row.username,
-                "email": row.email,
-                "hashed_password": row.hashed_password,
-                "role": row.role,
-                "is_active": row.is_active,
-                "created_at": row.created_at.isoformat() if row.created_at else None,
-                "updated_at": row.updated_at.isoformat() if row.updated_at else None,
-            })
+            return _row_to_user(row)
         return None
 
 
 async def _get_user_by_email(email: str):
     async with db_manager.session() as session:
-        from sqlalchemy import select
-        from src.infrastructure.database.models import UserModel
         stmt = select(UserModel).where(UserModel.email == email, UserModel.deleted_at.is_(None))
         result = await session.execute(stmt)
         row = result.scalar_one_or_none()
         if row:
-            return User.from_dict({
-                "user_id": row.user_id,
-                "username": row.username,
-                "email": row.email,
-                "hashed_password": row.hashed_password,
-                "role": row.role,
-                "is_active": row.is_active,
-                "created_at": row.created_at.isoformat() if row.created_at else None,
-                "updated_at": row.updated_at.isoformat() if row.updated_at else None,
-            })
+            return _row_to_user(row)
         return None
+
+
+def _row_to_user(row: UserModel) -> User:
+    return User.from_dict({
+        "user_id": row.user_id,
+        "username": row.username,
+        "email": row.email,
+        "hashed_password": row.hashed_password,
+        "role": row.role,
+        "is_active": row.is_active,
+        "created_at": row.created_at.isoformat() if row.created_at else None,
+        "updated_at": row.updated_at.isoformat() if row.updated_at else None,
+    })
 
 
 @router.post("/register", response_model=TokenResponse, status_code=201)
@@ -149,7 +140,6 @@ async def register(request: RegisterRequest) -> TokenResponse:
     )
 
     async with db_manager.session() as session:
-        from src.infrastructure.database.models import UserModel
         model = UserModel(
             user_id=user.user_id,
             username=user.username,
@@ -202,7 +192,6 @@ async def login(request: LoginRequest) -> TokenResponse:
 async def refresh_token(
     refresh_token_str: str = Header(alias="X-Refresh-Token"),
 ) -> TokenResponse:
-    import jwt as pyjwt
     try:
         payload = pyjwt.decode(
             refresh_token_str,
@@ -214,8 +203,6 @@ async def refresh_token(
 
         user_id = payload.get("sub")
         async with db_manager.session() as session:
-            from sqlalchemy import select
-            from src.infrastructure.database.models import UserModel
             stmt = select(UserModel).where(
                 UserModel.user_id == user_id,
                 UserModel.deleted_at.is_(None),
@@ -225,16 +212,7 @@ async def refresh_token(
             if not row:
                 raise AuthenticationError("User not found")
 
-            user = User.from_dict({
-                "user_id": row.user_id,
-                "username": row.username,
-                "email": row.email,
-                "hashed_password": row.hashed_password,
-                "role": row.role,
-                "is_active": row.is_active,
-                "created_at": row.created_at.isoformat() if row.created_at else None,
-                "updated_at": row.updated_at.isoformat() if row.updated_at else None,
-            })
+            user = _row_to_user(row)
 
         access_token = _create_access_token(user)
         new_refresh_token = _create_refresh_token(user)
@@ -256,8 +234,6 @@ async def get_current_user(
     token: dict = Depends(verify_token),
 ) -> UserResponse:
     async with db_manager.session() as session:
-        from sqlalchemy import select
-        from src.infrastructure.database.models import UserModel
         stmt = select(UserModel).where(
             UserModel.user_id == token["sub"],
             UserModel.deleted_at.is_(None),

@@ -55,33 +55,37 @@ class StructuredLogger:
     def debug(
         self,
         message: str,
+        *args: Any,
         correlation_id: Optional[str] = None,
         extra: Optional[dict[str, Any]] = None,
         **kwargs: Any,
     ) -> None:
-        self._log(logging.DEBUG, message, correlation_id, extra, **kwargs)
+        self._log(logging.DEBUG, message, args, correlation_id, extra, **kwargs)
 
     def info(
         self,
         message: str,
+        *args: Any,
         correlation_id: Optional[str] = None,
         extra: Optional[dict[str, Any]] = None,
         **kwargs: Any,
     ) -> None:
-        self._log(logging.INFO, message, correlation_id, extra, **kwargs)
+        self._log(logging.INFO, message, args, correlation_id, extra, **kwargs)
 
     def warning(
         self,
         message: str,
+        *args: Any,
         correlation_id: Optional[str] = None,
         extra: Optional[dict[str, Any]] = None,
         **kwargs: Any,
     ) -> None:
-        self._log(logging.WARNING, message, correlation_id, extra, **kwargs)
+        self._log(logging.WARNING, message, args, correlation_id, extra, **kwargs)
 
     def error(
         self,
         message: str,
+        *args: Any,
         correlation_id: Optional[str] = None,
         extra: Optional[dict[str, Any]] = None,
         exc_info: bool = True,
@@ -90,6 +94,7 @@ class StructuredLogger:
         self._log(
             logging.ERROR,
             message,
+            args,
             correlation_id,
             extra,
             exc_info=exc_info,
@@ -99,28 +104,35 @@ class StructuredLogger:
     def fatal(
         self,
         message: str,
+        *args: Any,
         correlation_id: Optional[str] = None,
         extra: Optional[dict[str, Any]] = None,
         **kwargs: Any,
     ) -> None:
-        self._log(logging.FATAL, message, correlation_id, extra, **kwargs)
+        self._log(logging.FATAL, message, args, correlation_id, extra, **kwargs)
 
     def _log(
         self,
         level: int,
         message: str,
+        args: tuple[Any, ...] = (),
         correlation_id: Optional[str] = None,
         extra: Optional[dict[str, Any]] = None,
         **kwargs: Any,
     ) -> None:
+        exc_info = kwargs.pop("exc_info", None)
+        if exc_info is True:
+            exc_info = sys.exc_info()
+            if exc_info == (None, None, None):
+                exc_info = None
         record = self._logger.makeRecord(
             self._logger.name,
             level,
             "",
             0,
             message,
-            (),
-            None,
+            args,
+            exc_info,
         )
         if correlation_id:
             record.correlation_id = correlation_id

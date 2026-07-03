@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from datetime import datetime, timedelta
 from typing import Any, Optional
 
@@ -50,7 +51,6 @@ class AnalyticsService:
         cache_key = self._build_cache_key("events", time_range, filters, pagination)
         cached = await self._cache.get(cache_key)
         if cached:
-            import json
             try:
                 data = json.loads(cached)
                 items = [AnalyticsEvent.from_dict(e) for e in data.get("items", [])]
@@ -66,7 +66,6 @@ class AnalyticsService:
         result = await self._event_repo.query(time_range, filters, pagination)
 
         try:
-            import json
             cache_data = {
                 "items": [e.to_dict() for e in result.items],
                 "total": result.total,
@@ -85,9 +84,23 @@ class AnalyticsService:
     ) -> Optional[AnalyticsEvent]:
         cached = await self._cache.get(f"event:{event_id}")
         if cached:
-            return AnalyticsEvent(event_id=event_id, event_type=EventType.CUSTOM, source="cache", payload={})
+            try:
+                data = json.loads(cached)
+                if isinstance(data, dict):
+                    return AnalyticsEvent.from_dict(data)
+            except Exception:
+                pass
 
         event = await self._event_repo.get_by_id(event_id)
+        if event:
+            try:
+                await self._cache.set(
+                    f"event:{event_id}",
+                    json.dumps(event.to_dict(), default=str),
+                    300,
+                )
+            except Exception:
+                pass
         return event
 
     async def get_aggregations(
@@ -103,7 +116,6 @@ class AnalyticsService:
         )
         cached = await self._cache.get(cache_key)
         if cached:
-            import json
             try:
                 data = json.loads(cached)
                 items = [AggregatedMetric.from_dict(m) for m in data.get("items", [])]
@@ -121,7 +133,6 @@ class AnalyticsService:
         )
 
         try:
-            import json
             cache_data = {
                 "items": [m.to_dict() for m in result.items],
                 "total": result.total,
@@ -149,11 +160,10 @@ class AnalyticsService:
         cache_key = f"counts:types:{time_range.start.isoformat()}:{time_range.end.isoformat()}"
         cached = await self._cache.get(cache_key)
         if cached:
-            import json
             return json.loads(cached)
 
         counts = await self._event_repo.count_by_type(time_range)
-        await self._cache.set(cache_key, str(counts).replace("'", '"'), 60)
+        await self._cache.set(cache_key, json.dumps(counts, default=str), 60)
         return counts
 
     async def get_source_counts(
@@ -162,11 +172,10 @@ class AnalyticsService:
         cache_key = f"counts:sources:{time_range.start.isoformat()}:{time_range.end.isoformat()}"
         cached = await self._cache.get(cache_key)
         if cached:
-            import json
             return json.loads(cached)
 
         counts = await self._event_repo.count_by_source(time_range)
-        await self._cache.set(cache_key, str(counts).replace("'", '"'), 60)
+        await self._cache.set(cache_key, json.dumps(counts, default=str), 60)
         return counts
 
     async def create_dashboard(self, dashboard: Dashboard) -> str:
@@ -177,7 +186,6 @@ class AnalyticsService:
     async def get_dashboard(self, dashboard_id: str) -> Optional[Dashboard]:
         cached = await self._cache.get(f"dashboard:{dashboard_id}")
         if cached:
-            import json
             try:
                 return Dashboard.from_dict(json.loads(cached))
             except Exception:
@@ -185,7 +193,6 @@ class AnalyticsService:
 
         dashboard = await self._dashboard_repo.get_by_id(dashboard_id)
         if dashboard:
-            import json
             await self._cache.set(
                 f"dashboard:{dashboard_id}",
                 json.dumps(dashboard.to_dict(), default=str),

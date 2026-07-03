@@ -1,6 +1,65 @@
 # Real-Time Analytics Pipeline
 
-Enterprise-grade real-time analytics pipeline with async event processing, time-series storage, real-time dashboards via WebSocket, and comprehensive observability.
+<p align="center">
+  <img src="https://img.shields.io/badge/python-3.11%2B-blue?style=for-the-badge&logo=python" alt="Python">
+  <img src="https://img.shields.io/badge/FastAPI-0.110+-00a86b?style=for-the-badge&logo=fastapi" alt="FastAPI">
+  <img src="https://img.shields.io/badge/TimescaleDB-2.16+-2C8EBB?style=for-the-badge&logo=timescale" alt="TimescaleDB">
+  <img src="https://img.shields.io/badge/Redis_Streams-7+-DC382D?style=for-the-badge&logo=redis" alt="Redis">
+  <img src="https://img.shields.io/badge/Kafka-3.6+-231F20?style=for-the-badge&logo=apachekafka" alt="Kafka">
+  <img src="https://img.shields.io/badge/WebSocket-Realtime-010101?style=for-the-badge&logo=socket.io" alt="WebSocket">
+  <img src="https://img.shields.io/badge/Prometheus-2.49-E6522C?style=for-the-badge&logo=prometheus" alt="Prometheus">
+  <img src="https://img.shields.io/badge/OpenTelemetry-1.22-4B0082?style=for-the-badge&logo=opentelemetry" alt="OpenTelemetry">
+  <img src="https://img.shields.io/badge/Docker-Compose-2496ED?style=for-the-badge&logo=docker" alt="Docker">
+  <img src="https://img.shields.io/badge/Kubernetes-1.28+-326CE5?style=for-the-badge&logo=kubernetes" alt="Kubernetes">
+  <br>
+  <img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="License">
+  <img src="https://img.shields.io/badge/coverage-80%25%2B-brightgreen?style=flat-square" alt="Coverage">
+  <img src="https://img.shields.io/badge/status-production--ready-00a86b?style=flat-square" alt="Status">
+  <img src="https://img.shields.io/badge/code_style-ruff-000000?style=flat-square" alt="Ruff">
+</p>
+
+Enterprise-grade real-time analytics pipeline with async event processing, time-series storage, real-time dashboards via WebSocket, comprehensive observability, and Kubernetes-ready deployment.
+
+## Features
+
+### 🚀 Core
+
+| Feature | Description |
+|---------|-------------|
+| **Async Event Ingestion** | REST API + batch ingestion with Redis Streams or Kafka backends |
+| **Time-Series Storage** | TimescaleDB hypertables with automatic partitioning and compression |
+| **Real-Time WebSocket** | Live dashboard updates with auto-reconnect and JWT auth |
+| **Adaptive Sampling** | Rate-based sampling with configurable thresholds per event type |
+| **Data Retention** | TTL-based policies (raw/hourly/daily) with automatic partition management |
+
+### 🔒 Enterprise Security
+
+| Feature | Description |
+|---------|-------------|
+| **JWT Authentication** | Access + refresh tokens with bcrypt password hashing |
+| **Role-Based Access Control** | Admin, editor, viewer roles with endpoint-level enforcement |
+| **Security Headers** | CSP, HSTS, X-Frame-Options, X-Content-Type-Options, Permissions-Policy |
+| **Correlation IDs** | End-to-end request tracing via `X-Correlation-ID` header propagation |
+| **Rate Limiting** | Per-IP request throttling with configurable burst allowances |
+| **Request Size Limiting** | Configurable max payload size with 413 rejection |
+
+### 📊 Observability
+
+| Feature | Description |
+|---------|-------------|
+| **Prometheus Metrics** | Request rate/latency/errors, event throughput, queue depth, active connections |
+| **OpenTelemetry Tracing** | Distributed traces across HTTP, queue, DB, and aggregation pipeline |
+| **Structured Logging** | JSON-formatted logs with correlation IDs and service context |
+| **Grafana Dashboards** | Pre-configured dashboards for metrics visualization and alerting |
+
+### ☁️ Deployment
+
+| Feature | Description |
+|---------|-------------|
+| **Docker Compose** | One-command full-stack deployment (app, TimescaleDB, Redis, Prometheus, Grafana) |
+| **Kubernetes** | Complete K8s manifests with HPA, Ingress, ConfigMaps, health checks |
+| **Multi-Stage Build** | Optimized Docker image (Python 3.11-slim, ~200MB) |
+| **Health Checks** | Liveness/readiness probes with DB and cache dependency awareness |
 
 ## Architecture
 
@@ -45,6 +104,17 @@ Enterprise-grade real-time analytics pipeline with async event processing, time-
 │  │  (Metrics)   │  │  (Tracing)     │  │ (Dashboards)   │  │ (Logs)     │  │
 │  └──────────────┘  └────────────────┘  └────────────────┘  └────────────┘  │
 └─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Middleware Pipeline (per request)
+
+```
+Request → CorrelationMiddleware (X-Correlation-ID generation/propagation)
+       → AuthMiddleware (JWT verification + RBAC)
+       → SecurityHeadersMiddleware (CSP, HSTS, X-Frame-Options, etc.)
+       → RateLimitMiddleware (per-IP throttling)
+       → SizeLimiterMiddleware (payload size enforcement)
+       → Router → ExceptionHandler → Response
 ```
 
 ### Key Components

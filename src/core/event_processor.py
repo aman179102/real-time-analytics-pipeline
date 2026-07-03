@@ -82,16 +82,20 @@ class EventProcessor:
     async def _process_batch(
         self, events: list[AnalyticsEvent]
     ) -> None:
+        if not events:
+            return
+
+        sampled_events = [
+            e for e in events
+            if self._sampler.should_sample(e)
+        ]
+        if not sampled_events:
+            return
+
         start_time = time.monotonic()
         span = tracer.start_span("process_events_batch")
 
         try:
-            sampled_events = [
-                e for e in events
-                if self._sampler.should_sample(e)
-            ]
-
-            statuses = {}
             for event in sampled_events:
                 event.status = EventStatus.PROCESSING
 
@@ -99,7 +103,6 @@ class EventProcessor:
 
             for event in sampled_events:
                 event.status = EventStatus.AGGREGATED
-                statuses[event.event_id] = True
 
             aggregated = await self._aggregation_engine.aggregate_events(
                 sampled_events

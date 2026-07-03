@@ -24,6 +24,7 @@ class Sampler:
         if rate >= 1.0:
             return True
         if rate <= 0.0:
+            self._add_to_reservoir(event)
             return False
 
         deterministic_key = f"{event.event_type.value}:{event.source}:{event.user_id or 'anon'}"
@@ -86,7 +87,3 @@ class Sampler:
                 k: len(v) for k, v in self._reservoir_samples.items()
             },
         }
-
-# test: add regression tests for data models bug fix
-
-# fix: fix edge case in authorization when input is empty

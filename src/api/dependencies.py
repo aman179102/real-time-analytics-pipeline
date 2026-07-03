@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from typing import AsyncGenerator, Optional
 
-from fastapi import Depends, Header, HTTPException, Request
+import jwt as pyjwt
+from fastapi import Depends, Header, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.errors import AuthenticationError, AuthorizationError
@@ -28,18 +29,24 @@ from src.infrastructure.database.repositories import (
 )
 from src.infrastructure.database.session import db_manager, get_db_session
 from src.infrastructure.logging import get_logger
-from src.infrastructure.queue.redis_streams import RedisStreamQueueProducer
+from src.infrastructure.queue.redis_streams import RedisStreamQueueConsumer, RedisStreamQueueProducer
 
 logger = get_logger(__name__)
 
+_cache_instance: Optional[RedisCache] = None
+
+
+async def _get_shared_cache() -> RedisCache:
+    global _cache_instance
+    if _cache_instance is None:
+        _cache_instance = RedisCache()
+        await _cache_instance.connect()
+    return _cache_instance
+
 
 async def get_cache() -> AsyncGenerator[CacheInterface, None]:
-    cache = RedisCache()
-    try:
-        await cache.connect()
-        yield cache
-    finally:
-        await cache.disconnect()
+    cache = await _get_shared_cache()
+    yield cache
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
@@ -66,15 +73,13 @@ async def get_dashboard_repo(
 
 
 async def get_queue_producer() -> AsyncGenerator[QueueProducerInterface, None]:
-    cache = RedisCache()
-    await cache.connect()
+    cache = await _get_shared_cache()
     producer = RedisStreamQueueProducer(cache)
     await producer.connect()
     try:
         yield producer
     finally:
-        await producer.disconnect()
-        await cache.disconnect()
+        pass
 
 
 async def get_analytics_service(
@@ -103,16 +108,10 @@ async def get_event_processor(
     aggregation_engine: AggregationEngine = Depends(get_aggregation_engine),
     sampler: Sampler = Depends(get_sampler),
 ) -> EventProcessor:
-    cache_for_producer = RedisCache()
-    await cache_for_producer.connect()
-    consumer = RedisStreamQueueProducer(cache_for_producer)
-    await consumer.connect()
-    from src.infrastructure.queue.redis_streams import RedisStreamQueueConsumer
-    rcache = RedisCache()
-    await rcache.connect()
-    redis_consumer = RedisStreamQueueConsumer(rcache)
+    redis_cache = await _get_shared_cache()
+    consumer = RedisStreamQueueConsumer(redis_cache)
     return EventProcessor(
-        event_repo, analytics_repo, redis_consumer, cache,
+        event_repo, analytics_repo, consumer, cache,
         aggregation_engine, sampler,
     )
 
@@ -135,7 +134,6 @@ async def verify_token(
         if scheme.lower() != "bearer":
             raise AuthenticationError("Invalid authorization scheme")
 
-        import jwt as pyjwt
         payload = pyjwt.decode(
             token,
             config.auth.jwt_secret,

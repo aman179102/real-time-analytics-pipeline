@@ -1,0 +1,90 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "real-time-analytics-pipeline"
+version = "2.0.0"
+description = "Enterprise-grade real-time event analytics pipeline with TimescaleDB, Redis Streams/Kafka, and WebSocket dashboards"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [
+    {name = "Dev Aman", email = "devaman@example.com"},
+]
+keywords = [
+    "analytics", "real-time", "events", "timescaledb", "fastapi",
+    "redis-streams", "kafka", "websocket", "prometheus", "opentelemetry",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Framework :: FastAPI",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Database :: Database Engines/Servers",
+    "Topic :: Internet :: WWW/HTTP :: WSGI :: Server",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+    "Topic :: System :: Monitoring",
+]
+dependencies = [
+    "fastapi>=0.110.0",
+    "uvicorn[standard]>=0.27.0",
+    "sqlalchemy[asyncio]>=2.0.25",
+    "asyncpg>=0.29.0",
+    "redis[hiredis]>=5.0.1",
+    "aiokafka>=0.10.0",
+    "pyjwt>=2.8.0",
+    "bcrypt>=4.1.0",
+    "pydantic>=2.5.0",
+    "prometheus-client>=0.19.0",
+    "opentelemetry-api>=1.22.0",
+    "opentelemetry-sdk>=1.22.0",
+    "opentelemetry-exporter-otlp>=1.22.0",
+    "httpx>=0.26.0",
+    "python-multipart>=0.0.6",
+    "alembic>=1.13.0",
+    "psutil>=5.9.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/devaman/real-time-analytics-pipeline"
+Repository = "https://github.com/devaman/real-time-analytics-pipeline"
+Documentation = "https://github.com/devaman/real-time-analytics-pipeline#readme"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.mypy]
+python_version = "3.11"
+strict = false
+ignore_missing_imports = true
+warn_unused_ignores = true
+check_untyped_defs = true
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+testpaths = ["tests"]
+asyncio_mode = "auto"
+markers = [
+    "unit: Unit tests (fast, no external deps)",
+    "integration: Integration tests (require DB/Redis)",
+    "e2e: End-to-end tests (full stack)",
+    "load: Performance/load tests",
+    "slow: Tests that take >10s",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]

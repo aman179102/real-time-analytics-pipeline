@@ -4,6 +4,7 @@ import time
 from typing import Optional
 
 from fastapi import Request, Response
+from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
 
@@ -32,7 +33,6 @@ class AuthMiddleware(BaseHTTPMiddleware):
         auth_header = request.headers.get("Authorization")
         if not auth_header:
             if request.url.path.startswith("/api/v1"):
-                from fastapi.responses import JSONResponse
                 return JSONResponse(
                     status_code=401,
                     content={

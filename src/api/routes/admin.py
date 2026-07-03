@@ -10,8 +10,10 @@ from src.api.dependencies import (
 )
 from src.core.analytics_service import AnalyticsService
 from src.core.retention import RetentionManager
+from src.core.sampling import Sampler
 from src.domain.models import UserRole
 from src.infrastructure.logging import get_logger
+from src.infrastructure.metrics import metrics
 
 logger = get_logger(__name__)
 
@@ -42,7 +44,6 @@ async def get_retention_summary(
 async def get_metrics_snapshot(
     token: dict = Depends(require_role(UserRole.ADMIN)),
 ) -> dict:
-    from src.infrastructure.metrics import metrics
     return metrics.snapshot()
 
 
@@ -50,6 +51,5 @@ async def get_metrics_snapshot(
 async def get_sampling_stats(
     token: dict = Depends(require_role(UserRole.ADMIN)),
 ) -> dict:
-    from src.core.sampling import Sampler
     sampler = Sampler()
     return sampler.get_sampling_stats()

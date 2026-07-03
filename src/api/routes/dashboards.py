@@ -11,8 +11,9 @@ from src.api.errors import NotFoundError, ValidationError
 from src.core.analytics_service import AnalyticsService
 from src.domain.models import Dashboard, DashboardWidget, UserRole, WidgetType
 from src.domain.value_objects import PaginationParams
+from src.infrastructure.logging import get_logger
 
-logger = __import__("src.infrastructure.logging", fromlist=["get_logger"]).get_logger(__name__)
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/api/v1/dashboards", tags=["Dashboards"])
 

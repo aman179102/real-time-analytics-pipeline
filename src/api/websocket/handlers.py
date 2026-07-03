@@ -4,9 +4,11 @@ import json
 from datetime import datetime, timedelta
 from typing import Any, Optional
 
+import jwt as pyjwt
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, Query
 
 from src.api.websocket.manager import manager
+from src.config import config
 from src.core.analytics_service import AnalyticsService
 from src.domain.value_objects import TimeRange
 from src.infrastructure.logging import get_logger
@@ -26,8 +28,6 @@ async def dashboard_websocket(
     user_id = None
     if token:
         try:
-            import jwt as pyjwt
-            from src.config import config
             payload = pyjwt.decode(
                 token, config.auth.jwt_secret, algorithms=[config.auth.jwt_algorithm]
             )
